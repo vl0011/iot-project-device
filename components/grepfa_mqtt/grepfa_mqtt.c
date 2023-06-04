@@ -48,12 +48,22 @@ void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, voi
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             if(it->mqtt_event_router_connected != NULL)
                 it->mqtt_event_router_connected(it, event);
+
+            if(it->connectWaitSem) {
+                xSemaphoreGive(it->connectWaitSem);
+            }
+
             break;
         case MQTT_EVENT_DISCONNECTED:
             it->isConnected = false;
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             if(it->mqtt_event_router_disconnected != NULL)
                 it->mqtt_event_router_disconnected(it, event);
+
+            if(it->connectWaitSem) {
+                vSemaphoreDelete(it->connectWaitSem);
+            }
+
             break;
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED");
@@ -94,7 +104,7 @@ void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, voi
 }
 
 
-GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id) {
+GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id, bool wait) {
     const esp_mqtt_client_config_t mqtt_cfg = {
             .broker.address.uri = endpoint,
             .broker.verification.certificate = (const char *)root_cert_auth_start,
@@ -112,6 +122,17 @@ GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const cha
     esp_mqtt_client_register_event(ret->mqttClient, MQTT_EVENT_ANY, mqtt_event_handler, ret);
     esp_mqtt_client_start(ret->mqttClient);
     ESP_LOGI(TAG, "mqtt client start...");
+
+    if (wait) {
+        ESP_LOGI(TAG, "waiting mqtt client connect...");
+        ret->connectWaitSem = xSemaphoreCreateBinary();
+        if (ret->connectWaitSem == NULL) {
+            ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
+            free(ret);
+            return NULL;
+        }
+        xQueueSemaphoreTake(ret->connectWaitSem, portMAX_DELAY);
+    }
 
     return ret;
 }

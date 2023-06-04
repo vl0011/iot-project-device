@@ -60,7 +60,7 @@ void app_main(void)
     char client_id[UUID_STR_LEN];
     random_uuid(client_id);
 
-    GrepfaMqttConnectorV1_t *conn = GrepfaMqttConnectorNew("mqtts://a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", client_id);
+    GrepfaMqttConnectorV1_t *conn = GrepfaMqttConnectorNew("mqtts://a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", client_id, true);
 
     GrepfaDeviceV1_t vDev;
 

@@ -35,11 +35,13 @@ struct grepfa_mqtt_connector_v1{
     GrepfaMqttV1Event_t mqtt_event_router_published;
     GrepfaMqttV1Event_t mqtt_event_router_data;
     GrepfaMqttV1Event_t mqtt_event_router_unknown;
+
+    SemaphoreHandle_t connectWaitSem;
 };
 
 
 void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, void *data);
-GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id);
+GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id, bool wait);
 
 #ifdef __cplusplus
 };
