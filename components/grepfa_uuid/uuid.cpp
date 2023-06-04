@@ -13,7 +13,7 @@ static const char *samples = "0123456789abcdef";
 
 union Rnd { unsigned char b[16]; uint64_t word[2]; };
 
-int get_nonce(void) {
+int get_nonce() {
     return 1858725;
 }
 
@@ -23,7 +23,7 @@ int random_int() {
     return rand();
 }
 
-uint64_t random_uint64(void) {
+uint64_t random_uint64() {
     uint64_t num = random_int() & 0x1FFFFF;
     num = (num << 32) | random_int();
     return num;
