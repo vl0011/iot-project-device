@@ -89,8 +89,8 @@ static void on_sta_got_ipv4(void *arg, esp_event_base_t event_base, int32_t even
 }
 
 void GrepfaWiFiShutdown() {
-    GrepfaWifiDisconnectSTA();
-    GrepfaWifiStop();
+    GrepfaWiFiDisconnectSTA();
+    GrepfaWiFiStop();
 }
 
 void GrepfaWiFiInit() {
@@ -100,7 +100,7 @@ void GrepfaWiFiInit() {
     ESP_LOGI(TAG, "init wifi resource done");
 }
 
-void GrepfaWifiStop() {
+void GrepfaWiFiStop() {
     esp_err_t err = esp_wifi_stop();
     if (err == ESP_ERR_WIFI_NOT_INIT) {
         return;
@@ -112,7 +112,7 @@ void GrepfaWifiStop() {
     s_sta_netif = NULL;
 }
 
-void GrepfaWifiSTA() {
+void GrepfaWiFiSTA() {
     esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_WIFI_STA();
 
     esp_netif_config.if_desc = WIFI_NETIF_DESC;
@@ -126,7 +126,7 @@ void GrepfaWifiSTA() {
 }
 
 
-esp_err_t GrepfaWifiDisconnectSTA() {
+esp_err_t GrepfaWiFiDisconnectSTA() {
     ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect));
     ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_sta_got_ipv4));
     ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_STA_CONNECTED, &on_wifi_connect));
@@ -139,7 +139,7 @@ esp_err_t GrepfaWifiDisconnectSTA() {
 }
 
 
-esp_err_t GrepfaWifiConnectSTA(const char* SSID, const char* password, bool wait, int retry) {
+esp_err_t GrepfaWiFiConnectSTA(const char* SSID, const char* password, bool wait, int retry) {
     retryNum = retry;
 
     wifi_config_t cfg;
