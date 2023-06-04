@@ -12,10 +12,10 @@ extern "C"{
 #endif
 
 void GrepfaWiFiInit();
-void GrepfaWifiStop();
-void GrepfaWifiSTA();
-esp_err_t GrepfaWifiDisconnectSTA();
-esp_err_t GrepfaWifiConnectSTA(const char* SSID, const char* password, bool wait, int retry);
+void GrepfaWiFiStop();
+void GrepfaWiFiSTA();
+esp_err_t GrepfaWiFiDisconnectSTA();
+esp_err_t GrepfaWiFiConnectSTA(const char* SSID, const char* password, bool wait, int retry);
 void GrepfaPrintAllIPs();
 esp_err_t GrepfaWiFiStartScan(bool wait, bool showHidden, bool activeScan);
 esp_err_t GrepfaWiFiStopScan();
