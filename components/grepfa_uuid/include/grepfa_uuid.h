@@ -7,7 +7,7 @@
 
 #define UUID_STR_LEN 37
 
-#include <cstdint>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -3,10 +3,8 @@
 //
 
 #include <grepfa_uuid.h>
-
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
+#include <string.h>
+#include <time.h>
 
 static const char *temp = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 static const char *samples = "0123456789abcdef";
@@ -18,7 +16,7 @@ int get_nonce() {
 }
 
 int random_int() {
-    unsigned int nonce = (unsigned int)time(nullptr) & get_nonce();
+    unsigned int nonce = (unsigned int)time(NULL) & get_nonce();
     srand(nonce);
     return rand();
 }
@@ -35,7 +33,7 @@ void random_u128(uint64_t* word) {
 }
 
 void bin_to_uuid(uint64_t* word, char* desc) {
-    Rnd* rnd = (Rnd*) word;
+    union Rnd* rnd = (union Rnd*) word;
     char uuid[37], *dst = uuid;
     const char *p = temp;
     int i = 0, n = 0;
@@ -62,7 +60,7 @@ void bin_to_uuid(uint64_t* word, char* desc) {
 }
 
 void random_uuid(char* desc) {
-    Rnd rnd{};
+    union Rnd rnd;
     random_u128(rnd.word);
     bin_to_uuid(rnd.word, desc);
 }
