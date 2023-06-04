@@ -2,3 +2,4 @@
 /.idea
 certs/*.key
 certs/client.crt
+cmake-*
