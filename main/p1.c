@@ -6,6 +6,7 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "grepfa_sntp.h"
 
 #include <grepfa_wifi.h>
 #include <grepfa_uuid.h>
@@ -56,6 +57,8 @@ void app_main(void)
     }
 
     GrepfaWiFiConnectSTA("sys2.4G", "shin0114", true, 15);
+
+    GrepfaSntpObtainTime();
 
     char client_id[UUID_STR_LEN];
     random_uuid(client_id);

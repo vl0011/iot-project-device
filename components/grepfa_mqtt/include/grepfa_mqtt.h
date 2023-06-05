@@ -40,8 +40,11 @@ struct grepfa_mqtt_connector_v1{
 };
 
 
-void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, void *data);
 GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id, bool wait);
+void GrepfaMqttConnectorSubscribe(GrepfaMqttConnectorV1_t* client, char* topicStr, int qos);
+void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t* client, char* topic, int qos, const char* dataStr, int dataSizeIfDataIsBinary);
+void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t* client, char* topic, int qos, const char* dataStr, int dataSizeIfDataIsBinary, bool store);
+
 
 #ifdef __cplusplus
 };

@@ -27,11 +27,7 @@ extern const char root_cert_auth_start[] asm("_binary_root_cert_auth_crt_start")
 extern const char root_cert_auth_end[]   asm("_binary_root_cert_auth_crt_end");
 #endif
 
-
-
-
-
-void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, void *data) {
+static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, void *data) {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
     GrepfaMqttConnectorV1_t* it = (GrepfaMqttConnectorV1_t*) args;
 
@@ -53,6 +49,8 @@ void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, voi
                 xSemaphoreGive(it->connectWaitSem);
             }
 
+            GrepfaMqttConnectorPublish(it, GREPFA_MQTT_CONFIGURATION_LOG_TOPIC, 1, "hello", 0);
+
             break;
         case MQTT_EVENT_DISCONNECTED:
             it->isConnected = false;
@@ -62,6 +60,7 @@ void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, voi
 
             if(it->connectWaitSem) {
                 vSemaphoreDelete(it->connectWaitSem);
+                it->connectWaitSem = NULL;
             }
 
             break;
@@ -123,6 +122,8 @@ GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const cha
     esp_mqtt_client_start(ret->mqttClient);
     ESP_LOGI(TAG, "mqtt client start...");
 
+    ret->rootTopic = GREPFA_MQTT_CONFIGURATION_ROOT_TOPIC;
+
     if (wait) {
         ESP_LOGI(TAG, "waiting mqtt client connect...");
         ret->connectWaitSem = xSemaphoreCreateBinary();
@@ -135,4 +136,23 @@ GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const cha
     }
 
     return ret;
+}
+
+void GrepfaMqttConnectorSubscribe(GrepfaMqttConnectorV1_t *client, char *topicStr, int qos) {
+    esp_mqtt_client_subscribe(client->mqttClient, topicStr, qos);
+}
+
+void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t *client, char *topic, int qos, const char *dataStr,
+                                int dataSizeIfDataIsBinary) {
+    int ret = esp_mqtt_client_publish(client->mqttClient, topic, dataStr, dataSizeIfDataIsBinary, qos, 0);
+    if (ret == -1) {
+        ESP_LOGW(TAG, "%s - publish error", topic);
+    } else {
+        ESP_LOGI(TAG, "%s - publish success", topic);
+    }
+}
+
+void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t *client, char *topic, int qos, const char *dataStr,
+                                     int dataSizeIfDataIsBinary, bool store) {
+    esp_mqtt_client_enqueue(client->mqttClient, topic, dataStr, dataSizeIfDataIsBinary, qos, 0, store);
 }
