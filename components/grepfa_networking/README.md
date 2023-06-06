@@ -1,6 +1,19 @@
-# networking.h
+# grepfa_networking
+외부 네트워크와 연결을 설정하는 컴포넌트 입니다.
 
-기능
-- wifi 연결 수행
-- 이더넷 연결 수행 TODO
+현재는 WiFi 연결만 지원합니다.
 
+## WiFi
+[wifi.md](./wifi.md) 참
+
+## BluFi
+TODO
+
+## Ethernet
+TODO
+
+## LoRa
+TODO
+
+## ZigBee
+TODO
