@@ -1,3 +1,3 @@
 idf_component_register(SRCS "networking_util.c" "grepfa_wifi.c"
                     INCLUDE_DIRS "include"
-        PRIV_REQUIRES esp_netif driver esp_wifi vfs)
+        PRIV_REQUIRES esp_netif esp_wifi)

@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-void random_uuid(char* desc);
+void random_uuid(char* dest);
 void random_u128(uint64_t* word);
 void bin_to_uuid(uint64_t* word, char* desc);
 

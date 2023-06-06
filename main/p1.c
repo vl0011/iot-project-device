@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stddef.h>
 #include <string.h>
 #include <esp_log.h>
 #include "esp_system.h"
@@ -49,12 +48,12 @@ void app_main(void)
     GrepfaWiFiGetScanRecord(16, &scanned, records);
     GrepfaWiFiStopScan();
 
-    for (int i = 0; i < scanned; ++i) {
-        ESP_LOGI(TAG, "wifi %d ->", i);
-        ESP_LOGI(TAG, "SSID: %s", records[i].ssid);
-        ESP_LOGI(TAG, "AUTH: %s", auth_mode_str(records[i].authmode));
-        puts("=================");
-    }
+//    for (int i = 0; i < scanned; ++i) {
+//        ESP_LOGI(TAG, "wifi %d ->", i);
+//        ESP_LOGI(TAG, "SSID: %s", records[i].ssid);
+//        ESP_LOGI(TAG, "AUTH: %s", auth_mode_str(records[i].authmode));
+//        puts("=================");
+//    }
 
     GrepfaWiFiConnectSTA("sys2.4G", "shin0114", true, 15);
 
@@ -82,7 +81,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "%s", jsonStr);
 
-    while (1){
+    while (true){
         ESP_LOGI(TAG, "hoho");
         vTaskDelay(1000/portTICK_PERIOD_MS);
     }

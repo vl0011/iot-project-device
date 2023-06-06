@@ -5,20 +5,15 @@
 #include <grepfa_uuid.h>
 #include <string.h>
 #include <time.h>
+#include <esp_random.h>
 
 static const char *temp = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
 static const char *samples = "0123456789abcdef";
 
 union Rnd { unsigned char b[16]; uint64_t word[2]; };
 
-int get_nonce() {
-    return 1858725;
-}
-
-int random_int() {
-    unsigned int nonce = (unsigned int)time(NULL) & get_nonce();
-    srand(nonce);
-    return rand();
+uint32_t random_int() {
+    return esp_random();
 }
 
 uint64_t random_uint64() {
@@ -32,7 +27,7 @@ void random_u128(uint64_t* word) {
     word[1] = random_uint64();
 }
 
-void bin_to_uuid(uint64_t* word, char* desc) {
+void bin_to_uuid(uint64_t* word, char* dest) {
     union Rnd* rnd = (union Rnd*) word;
     char uuid[37], *dst = uuid;
     const char *p = temp;
@@ -56,11 +51,11 @@ void bin_to_uuid(uint64_t* word, char* desc) {
         dst++;
     }
     uuid[36] = '\0';
-    strncpy(desc, uuid, 37);
+    strncpy(dest, uuid, 37);
 }
 
-void random_uuid(char* desc) {
+void random_uuid(char* dest) {
     union Rnd rnd;
     random_u128(rnd.word);
-    bin_to_uuid(rnd.word, desc);
+    bin_to_uuid(rnd.word, dest);
 }

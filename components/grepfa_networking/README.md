@@ -4,7 +4,7 @@
 현재는 WiFi 연결만 지원합니다.
 
 ## WiFi
-[wifi.md](./wifi.md) 참
+[wifi.md](./wifi.md) 참고
 
 ## BluFi
 TODO
@@ -17,3 +17,6 @@ TODO
 
 ## ZigBee
 TODO
+
+## TODO
+[TODO.md](./TODO.md)
