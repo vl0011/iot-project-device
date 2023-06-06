@@ -1,0 +1,3 @@
+[submodule "components/grepfa_hashmap/hashmap.c"]
+	path = components/grepfa_hashmap/hashmap.c
+	url = https://github.com/tidwall/hashmap.c

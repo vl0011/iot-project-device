@@ -17,11 +17,19 @@ extern "C" {
 #include <time.h>
 #include <string.h>
 
+typedef enum GrepfaMQTTEventType_t {
+    PAYLOAD_ARRIVED
+
+}GrepfaMQTTEventType_t;
+
+typedef void (*GrepfaMQTTEventHandler_t) ();
 
 typedef struct grepfa_device_v1 {
     GrepfaMqttConnectorV1_t* connector;
     char id[GREPFA_MQTT_CONFIGURATION_DEVICE_ID_LEN];
     char type[GREPFA_MQTT_CONFIGURATION_DEVICE_TYPE_LEN];
+
+    GrepfaMQTTEventHandler_t sd;
 } GrepfaDeviceV1_t;
 
     void GrepfaMqttDeviceSet(GrepfaDeviceV1_t* dev, char* id, char* type);

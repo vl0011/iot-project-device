@@ -20,6 +20,7 @@ void GrepfaPrintAllIPs();
 esp_err_t GrepfaWiFiStartScan(bool wait, bool showHidden, bool activeScan);
 esp_err_t GrepfaWiFiStopScan();
 esp_err_t GrepfaWiFiGetScanRecord(uint16_t num, uint16_t * found, wifi_ap_record_t* records);
+esp_err_t GrepfaWiFiSTAGetApInfo(wifi_ap_record_t* info);
 
 #ifdef __cplusplus
 };

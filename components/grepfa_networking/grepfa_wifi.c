@@ -221,3 +221,7 @@ esp_err_t GrepfaWiFiGetScanRecord(uint16_t num, uint16_t * found, wifi_ap_record
 
     return esp_wifi_scan_get_ap_num(found);
 }
+
+esp_err_t GrepfaWiFiSTAGetApInfo(wifi_ap_record_t* info) {
+    return esp_wifi_sta_get_ap_info(info);
+}
