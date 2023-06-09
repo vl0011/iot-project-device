@@ -9,41 +9,21 @@
 extern "C" {
 #endif
 
+#include "grepfa_mqtt_types.h"
 
 #include <stdint.h>
 #include <mqtt_client.h>
 #include <grepfa_uuid.h>
 
+#include <hashmap.h>
+#include <grepfa_mqtt_device.h>
 
-typedef struct grepfa_mqtt_connector_v1 GrepfaMqttConnectorV1_t;
-
-typedef void(*GrepfaMqttV1Event_t) (GrepfaMqttConnectorV1_t*, esp_mqtt_event_handle_t);
-
-
-struct grepfa_mqtt_connector_v1{
-    char id[UUID_STR_LEN];
-    char* rootTopic;
-    esp_mqtt_client_handle_t mqttClient;
-
-    bool isConnected;
-
-    GrepfaMqttV1Event_t mqtt_event_router_error;
-    GrepfaMqttV1Event_t mqtt_event_router_connected;
-    GrepfaMqttV1Event_t mqtt_event_router_disconnected;
-    GrepfaMqttV1Event_t mqtt_event_router_subscribe;
-    GrepfaMqttV1Event_t mqtt_event_router_unsubscribe;
-    GrepfaMqttV1Event_t mqtt_event_router_published;
-    GrepfaMqttV1Event_t mqtt_event_router_data;
-    GrepfaMqttV1Event_t mqtt_event_router_unknown;
-
-    SemaphoreHandle_t connectWaitSem;
-};
 
 
 GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const char *id, bool wait);
-void GrepfaMqttConnectorSubscribe(GrepfaMqttConnectorV1_t* client, char* topicStr, int qos);
-void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t* client, char* topic, int qos, const char* dataStr, int dataSizeIfDataIsBinary);
-void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t* client, char* topic, int qos, const char* dataStr, int dataSizeIfDataIsBinary, bool store);
+void GrepfaMqttConnectorAddDevice(GrepfaMqttConnectorV1_t *client, GrepfaDeviceV1_t* device, int qos);
+void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t *client, GrepfaDeviceV1_t* device, const GrepfaPayloadData_t* data, int qos);
+//        void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t* client, char* topic, int qos, const char* dataStr, int dataSizeIfDataIsBinary, bool store);
 
 
 #ifdef __cplusplus

@@ -2,9 +2,12 @@
 // Created by vl0011 on 23. 6. 8.
 //
 
+static const char * TAG = "grepfa_json";
+
 #include <grepfa_payload_v1.h>
 #include <string.h>
 #include <cJSON.h>
+#include <esp_log.h>
 
 GrepfaPayloadData_t *NewGrepfaPayloadData(const char* things_id, time_t timestamp) {
     GrepfaPayloadData_t * ret = malloc(sizeof(GrepfaPayloadData_t));
@@ -43,22 +46,22 @@ GrepfaPayloadData_t *AddGrepfaPayloadValue(GrepfaPayloadData_t * payload, int ch
 GrepfaPayloadData_t *JsonToGrepfaPayloadData(const char *jsonStr, int jsonLen) {
     cJSON *json = cJSON_ParseWithLength(jsonStr, jsonLen);
 
-    if (json == NULL) { return NULL; }
+    if (json == NULL) { ESP_LOGE(TAG, "invalid json format"); return NULL; }
 
     cJSON * tIdObj = cJSON_GetObjectItemCaseSensitive(json, "things_id");
-    if(tIdObj == NULL || !cJSON_IsString(tIdObj)) { goto fail;}
+    if(tIdObj == NULL || !cJSON_IsString(tIdObj)) { ESP_LOGE(TAG, "things_id error"); goto fail;}
     const char* thingsId = tIdObj->valuestring;
 
     cJSON * pIdObj = cJSON_GetObjectItemCaseSensitive(json, "payload_id");
-    if(pIdObj == NULL || !cJSON_IsString(pIdObj)) { goto fail;}
+    if(pIdObj == NULL || !cJSON_IsString(pIdObj)) { ESP_LOGE(TAG, "payload_id error"); goto fail;}
     const char* payloadId = pIdObj->valuestring;
 
     cJSON * timestampObj = cJSON_GetObjectItemCaseSensitive(json, "timestamp");
-    if (timestampObj == NULL || !cJSON_IsNumber(timestampObj)) { goto fail;}
+    if (timestampObj == NULL || !cJSON_IsNumber(timestampObj)) { ESP_LOGE(TAG, "timestamp error"); goto fail;}
     time_t timestamp = timestampObj->valuedouble;
 
     cJSON * valuesObj = cJSON_GetObjectItemCaseSensitive(json, "values");
-    if (valuesObj == NULL || !cJSON_IsArray(valuesObj)) { goto fail;}
+    if (valuesObj == NULL || !cJSON_IsArray(valuesObj)) { ESP_LOGE(TAG, "values error"); goto fail;}
 
     GrepfaPayloadData_t* ret = NewGrepfaPayloadData(thingsId, timestamp);
 
@@ -94,7 +97,7 @@ fail:
     return NULL;
 }
 
-char *GrepfaPayloadDataToJson(GrepfaPayloadData_t *payload) {
+char *GrepfaPayloadDataToJson(const GrepfaPayloadData_t *payload) {
     cJSON* json = cJSON_CreateObject();
 
     cJSON_AddNumberToObject(json, "timestamp", payload->timestamp);
@@ -116,7 +119,7 @@ char *GrepfaPayloadDataToJson(GrepfaPayloadData_t *payload) {
 
     cJSON_AddItemToObject(json, "values", valArr);
 
-    char* buf = cJSON_Print(json);
+    char* buf = cJSON_PrintUnformatted(json);
     char* ret = strdup(buf);
 
     cJSON_Delete(json);

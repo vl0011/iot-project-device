@@ -1,88 +1,144 @@
+#include <bootstrap.h>
+#include <app_config.h>
+
 #include <stdint.h>
 #include <string.h>
 #include <esp_log.h>
 #include "esp_system.h"
-#include "nvs_flash.h"
 #include "esp_event.h"
-#include "esp_netif.h"
 #include "grepfa_sntp.h"
 
 #include <grepfa_wifi.h>
-#include <grepfa_uuid.h>
+#include <grepfa_neopixel.h>
 #include <grepfa_mqtt.h>
 #include <esp_wifi_types.h>
 #include <networking_util.h>
 #include <grepfa_mqtt_device.h>
+#include <grepfa_payload_v1.h>
+#include <grepfa_ping.h>
 
 static const char* TAG = "app";
 
+static void pingTestTask(void* arg);
+static void rssiTestTask(void* arg);
+static void LedCallback(const GrepfaPayloadData_t * payload);
+
 void app_main(void)
 {
-    ESP_LOGI(TAG, "[APP] Startup..");
-    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32" bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
 
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        /* NVS partition was truncated
-         * and needs to be erased */
-        ESP_ERROR_CHECK(nvs_flash_erase());
+    bootstrap();
 
-        /* Retry nvs_flash_init */
-        ESP_ERROR_CHECK(nvs_flash_init());
-    }
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    GrepfaNeoPixelInit();
 
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-
+    GrepfaNeoPixelOn(100, 0, 0);
     GrepfaWiFiInit();
-
     GrepfaWiFiSTA();
 
-    GrepfaWiFiStartScan(true, false, true);
+    GrepfaNeoPixelOn(0, 100, 0);
 
+    GrepfaWiFiStartScan(true, false, true);
     wifi_ap_record_t records[16];
     uint16_t scanned;
-
     GrepfaWiFiGetScanRecord(16, &scanned, records);
     GrepfaWiFiStopScan();
+    for (int i = 0; i < scanned; ++i) {
+        ESP_LOGI(TAG, "wifi %d ->", i);
+        ESP_LOGI(TAG, "SSID: %s", records[i].ssid);
+        ESP_LOGI(TAG, "AUTH: %s", auth_mode_str(records[i].authmode));
+        puts("=================");
+    }
 
-//    for (int i = 0; i < scanned; ++i) {
-//        ESP_LOGI(TAG, "wifi %d ->", i);
-//        ESP_LOGI(TAG, "SSID: %s", records[i].ssid);
-//        ESP_LOGI(TAG, "AUTH: %s", auth_mode_str(records[i].authmode));
-//        puts("=================");
-//    }
+    GrepfaNeoPixelOn(0, 0, 100);
+    GrepfaWiFiConnectSTA(APP_CONFIG_SSID, APP_CONFIG_PASSWORD, true, 15);
 
-    GrepfaWiFiConnectSTA("sys2.4G", "shin0114", true, 15);
-
+    GrepfaNeoPixelOn(0, 100, 100);
     GrepfaSntpObtainTime();
 
-    char client_id[UUID_STR_LEN];
-    random_uuid(client_id);
+    const char* devId = APP_CONFIG_DEV_ID;
 
-    GrepfaMqttConnectorV1_t *conn = GrepfaMqttConnectorNew("mqtts://a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", client_id, true);
+    GrepfaNeoPixelOn(100, 100, 0);
+    GrepfaMqttConnectorV1_t *conn = GrepfaMqttConnectorNew(APP_CONFIG_MQTT_BROKER_SERVER_ENDPOINT, devId, true);
+
+    GrepfaNeoPixelOff();
+    // Ping, RSSI task create
+    xTaskCreate(pingTestTask, "pingTestTask", 4096, conn, 10, NULL);
+    xTaskCreate(rssiTestTask, "rssiTestTask", 4096, conn, 10, NULL);
+
+    // led
+    GrepfaDeviceV1_t ledVDev;
+    GrepfaMqttDeviceSet(&ledVDev, APP_CONFIG_LED_VDEV_ID, LedCallback);
+    GrepfaMqttConnectorAddDevice(conn, &ledVDev, 1);
+
+
+    while (1){
+        ESP_LOGI(TAG, " ");
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+static void pingTestTask(void* arg) {
+    const char* id = APP_CONFIG_PING_VDEV_ID;
 
     GrepfaDeviceV1_t vDev;
+    GrepfaMqttConnectorV1_t * conn = arg;
+    GrepfaMqttDeviceSet(&vDev, id, NULL);
+    GrepfaMqttConnectorAddDevice(conn, &vDev, 1);
+    char itoaBuf[100];
 
-    random_uuid(client_id);
-    GrepfaMqttDeviceSet(&vDev, client_id, "sensor");
-    GrepfaMqttDeviceSetConnector(&vDev, conn);
+    GrepfaPing_t req = GrepfaPingDefaultReq();
+    GrepfaPingResult_t res;
+    while (1) {
+        ESP_LOGI(TAG, "ping test...");
+        GrepfaPingStart("a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", true, &req, &res);
+        int avgPing = res.total_time_ms / 5;
 
-    GrepfaDevicePayloadV1_t payloads[2];
+        GrepfaPayloadData_t * d = NewGrepfaPayloadData(id, 0);
 
-    for (int i = 0; i < 2; ++i) {
-        char itoaBuf[10];
-        GrepfaDevicePayloadV1Set(&payloads[i], i, "xxx", itoa(i, itoaBuf, 10));
+        itoa(avgPing, itoaBuf, 10);
+        AddGrepfaPayloadValue(d, 0, "pingAvg", itoaBuf);
+
+        itoa(res.loss, itoaBuf, 10);
+        AddGrepfaPayloadValue(d, 0, "pingLoss", itoaBuf);
+        GrepfaMqttConnectorPublish(conn, &vDev, d, 1);
+
+        DeleteGrepfaPayloadData(d);
     }
+}
 
-    char* jsonStr = GrepfaMqttDeviceGetJsonPayload(&vDev, payloads, 2);
+static void rssiTestTask(void* arg) {
+    const char* id = APP_CONFIG_RSSI_VDEV_ID;
 
-    ESP_LOGI(TAG, "%s", jsonStr);
+    GrepfaDeviceV1_t vDev;
+    GrepfaMqttConnectorV1_t * conn = arg;
+    GrepfaMqttDeviceSet(&vDev, id, NULL);
+    char itoaBuf[100];
 
-    while (true){
-        ESP_LOGI(TAG, "hoho");
+    GrepfaMqttConnectorAddDevice(conn, &vDev, 1);
+
+    wifi_ap_record_t currentWiFiInfo;
+
+    while (1) {
+        ESP_LOGI(TAG, "rssi test...");
         vTaskDelay(1000/portTICK_PERIOD_MS);
+        GrepfaWiFiSTAGetApInfo(&currentWiFiInfo);
+        GrepfaPayloadData_t * d = NewGrepfaPayloadData(id, 0);
+        itoa(currentWiFiInfo.rssi, itoaBuf, 10);
+        AddGrepfaPayloadValue(d,0, "rssi", itoaBuf);
+        GrepfaMqttConnectorPublish(conn, &vDev, d, 1);
+        DeleteGrepfaPayloadData(d);
     }
+}
+
+void LedCallback(const GrepfaPayloadData_t *payload) {
+    char *r = (payload[0].values[0].value);
+    char *g = (payload[0].values[1].value);
+    char *b = (payload[0].values[2].value);
+
+    int ir = atoi(r);
+    int ig = atoi(g);
+    int ib = atoi(b);
+
+    GrepfaNeoPixelOn(ir, ig, ib);
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }

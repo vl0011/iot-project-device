@@ -14,6 +14,8 @@ static const char* TAG = "grepfa_mqtt";
 #include "esp_log.h"
 #include "grepfa_uuid.h"
 #include "mqtt_client.h"
+#include "grepfa_mqtt_event.h"
+#include <esp_random.h>
 
 
 #ifdef GREPFA_MQTT_CONFIGURATION_CERTIFICATION_FROM_ASM
@@ -27,6 +29,18 @@ extern const char root_cert_auth_start[] asm("_binary_root_cert_auth_crt_start")
 extern const char root_cert_auth_end[]   asm("_binary_root_cert_auth_crt_end");
 #endif
 
+static uint64_t GrepfaMqttDeviceGetHash(const void* item, uint64_t seed0, uint64_t seed1) {
+    const GrepfaDeviceV1_t *dev = item;
+    return hashmap_sip(dev->id, UUID_STR_LEN, seed0, seed1);
+}
+
+static int GrepfaMqttDeviceCompare(const void *a, const void *b, void *udata) {
+    const GrepfaDeviceV1_t *ua = a;
+    const GrepfaDeviceV1_t *ub = b;
+    return strcmp(ua->id, ub->id);
+}
+
+
 static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_id, void *data) {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
     GrepfaMqttConnectorV1_t* it = (GrepfaMqttConnectorV1_t*) args;
@@ -36,27 +50,21 @@ static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_
     switch ((esp_mqtt_event_id_t) event_id) {
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            if(it->mqtt_event_router_error != NULL)
-                it->mqtt_event_router_error(it, event);
+            mqtt_event_router_error(it, event);
             break;
-        case MQTT_EVENT_CONNECTED:
-            it->isConnected = true;
-            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            if(it->mqtt_event_router_connected != NULL)
-                it->mqtt_event_router_connected(it, event);
 
+        case MQTT_EVENT_CONNECTED:
+            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             if(it->connectWaitSem) {
                 xSemaphoreGive(it->connectWaitSem);
             }
-
-            GrepfaMqttConnectorPublish(it, GREPFA_MQTT_CONFIGURATION_LOG_TOPIC, 1, "hello", 0);
-
+//            GrepfaMqttConnectorPublish(it, GREPFA_MQTT_CONFIGURATION_LOG_TOPIC, 1, "hello", 0);
+            mqtt_event_router_connected(it, event);
             break;
+
         case MQTT_EVENT_DISCONNECTED:
-            it->isConnected = false;
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-            if(it->mqtt_event_router_disconnected != NULL)
-                it->mqtt_event_router_disconnected(it, event);
+            mqtt_event_router_disconnected(it, event);
 
             if(it->connectWaitSem) {
                 vSemaphoreDelete(it->connectWaitSem);
@@ -64,40 +72,41 @@ static void mqtt_event_handler(void *args, esp_event_base_t base, int32_t event_
             }
 
             break;
+
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED");
-            if(it->mqtt_event_router_subscribe != NULL)
-                it->mqtt_event_router_subscribe(it, event);
+            mqtt_event_router_subscribe(it, event);
             break;
+
         case MQTT_EVENT_UNSUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED");
-            if(it->mqtt_event_router_unsubscribe != NULL)
-                it->mqtt_event_router_unsubscribe(it, event);
+            mqtt_event_router_unsubscribe(it, event);
             break;
+
         case MQTT_EVENT_PUBLISHED:
             ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED");
-            if(it->mqtt_event_router_published != NULL)
-                it->mqtt_event_router_published(it, event);
+            mqtt_event_router_published(it, event);
             break;
+
         case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "topic: %.*s ->\n%.*s", event->topic_len, event->topic, event->data_len, event->data);
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            if(it->mqtt_event_router_data != NULL)
-                it->mqtt_event_router_data(it, event);
+            mqtt_event_router_data(it, event);
             break;
+
         case MQTT_EVENT_BEFORE_CONNECT:
             ESP_LOGI(TAG, "MQTT_EVENT_BEFORE_CONNECT");
-            if(it->mqtt_event_router_connected != NULL)
-                it->mqtt_event_router_connected(it, event);
+            mqtt_event_router_connected(it, event);
             break;
+
         case MQTT_EVENT_DELETED:
             ESP_LOGI(TAG, "MQTT_EVENT_DELETED");
-//            if(it->mqtt_event_router_deleted != NULL)
-//            it->mqtt_event_router_deleted(it, event);
+            mqtt_event_router_deleted(it, event);
             break;
+
         default:
             ESP_LOGI(TAG, "UNKNOWN_EVENT");
-//            if(it->mqtt_event_router_unknown != NULL)
-//            it->mqtt_event_router_unknown(it, event);
+            mqtt_event_router_unknown(it, event);
 
     }
 }
@@ -122,8 +131,6 @@ GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const cha
     esp_mqtt_client_start(ret->mqttClient);
     ESP_LOGI(TAG, "mqtt client start...");
 
-    ret->rootTopic = GREPFA_MQTT_CONFIGURATION_ROOT_TOPIC;
-
     if (wait) {
         ESP_LOGI(TAG, "waiting mqtt client connect...");
         ret->connectWaitSem = xSemaphoreCreateBinary();
@@ -132,27 +139,52 @@ GrepfaMqttConnectorV1_t * GrepfaMqttConnectorNew(const char* endpoint, const cha
             free(ret);
             return NULL;
         }
-        xQueueSemaphoreTake(ret->connectWaitSem, portMAX_DELAY);
+        xSemaphoreTake(ret->connectWaitSem, portMAX_DELAY);
     }
+
+    ESP_LOGI(TAG, "create device hashmap...");
+    ret->devices = hashmap_new(sizeof(GrepfaDeviceV1_t), 0, esp_random(), esp_random(), GrepfaMqttDeviceGetHash, GrepfaMqttDeviceCompare, NULL, NULL);
 
     return ret;
 }
 
-void GrepfaMqttConnectorSubscribe(GrepfaMqttConnectorV1_t *client, char *topicStr, int qos) {
-    esp_mqtt_client_subscribe(client->mqttClient, topicStr, qos);
+void GrepfaMqttConnectorAddDevice(GrepfaMqttConnectorV1_t *client, GrepfaDeviceV1_t* device, int qos) {
+    char buf[255];
+    strcpy(buf, GREPFA_MQTT_CONFIGURATION_ROOT_TOPIC);
+    strcat(buf, "actuator/");
+    strcat(buf, device->id);
+
+    ESP_LOGI(TAG, "subscribed: %s", buf);
+    esp_mqtt_client_subscribe(client->mqttClient, buf, qos);
+    hashmap_set(client->devices, device);
 }
 
-void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t *client, char *topic, int qos, const char *dataStr,
-                                int dataSizeIfDataIsBinary) {
-    int ret = esp_mqtt_client_publish(client->mqttClient, topic, dataStr, dataSizeIfDataIsBinary, qos, 0);
+void GrepfaMqttConnectorPublish(GrepfaMqttConnectorV1_t *client, GrepfaDeviceV1_t* device, const GrepfaPayloadData_t* data, int qos) {
+    char topicBuf[255];
+    strcpy(topicBuf, GREPFA_MQTT_CONFIGURATION_ROOT_TOPIC);
+    strcat(topicBuf, "sensor/");
+    strcat(topicBuf, device->id);
+
+    char* dataStr = GrepfaPayloadDataToJson(data);
+
+    ESP_LOGI(TAG, "data string created");
+
+    ESP_LOGI(TAG, "%s:%s", topicBuf, dataStr);
+
+    int ret = esp_mqtt_client_publish(client->mqttClient, topicBuf, dataStr, 0, qos, 0);
+
+    ESP_LOGI(TAG, "data published");
+
+    DeleteGrepfaPayloadDataJsonStr(dataStr);
+
     if (ret == -1) {
-        ESP_LOGW(TAG, "%s - publish error", topic);
+        ESP_LOGW(TAG, "%s - publish error", topicBuf);
     } else {
-        ESP_LOGI(TAG, "%s - publish success", topic);
+        ESP_LOGI(TAG, "%s - publish success", topicBuf);
     }
 }
 
-void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t *client, char *topic, int qos, const char *dataStr,
-                                     int dataSizeIfDataIsBinary, bool store) {
-    esp_mqtt_client_enqueue(client->mqttClient, topic, dataStr, dataSizeIfDataIsBinary, qos, 0, store);
-}
+//void GrepfaMqttConnectorPublishAsync(GrepfaMqttConnectorV1_t *client, char *topic, int qos, const char *dataStr,
+//                                     int dataSizeIfDataIsBinary, bool store) {
+//    esp_mqtt_client_enqueue(client->mqttClient, topic, dataStr, dataSizeIfDataIsBinary, qos, 0, store);
+//}

@@ -28,7 +28,7 @@ typedef struct grepfa_payload_Data_t{
 
 
 GrepfaPayloadData_t * JsonToGrepfaPayloadData(const char* jsonStr, int jsonLen);
-char* GrepfaPayloadDataToJson(GrepfaPayloadData_t* data);
+char* GrepfaPayloadDataToJson(const GrepfaPayloadData_t* data);
 #define DeleteGrepfaPayloadDataJsonStr(str) free(str)
 
 GrepfaPayloadData_t* NewGrepfaPayloadData(const char* things_id, time_t timestamp);

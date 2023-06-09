@@ -1,3 +1,3 @@
-idf_component_register(SRCS "ping.c"
+idf_component_register(SRCS "grepfa_neopixel.c"
                     INCLUDE_DIRS "include"
-        PRIV_REQUIRES esp_netif lwip)
+        PRIV_REQUIRES led_strip driver)
