@@ -61,8 +61,8 @@ void app_main(void)
 
     GrepfaNeoPixelOff();
     // Ping, RSSI task create
-    xTaskCreate(pingTestTask, "pingTestTask", 4096, conn, 10, NULL);
-    xTaskCreate(rssiTestTask, "rssiTestTask", 4096, conn, 10, NULL);
+    xTaskCreatePinnedToCore(pingTestTask, "pingTestTask", 6096, conn, 10, NULL, 0);
+    xTaskCreatePinnedToCore(rssiTestTask, "rssiTestTask", 4096, conn, 10, NULL, 0);
 
     // led
     GrepfaDeviceV1_t ledVDev;
@@ -70,8 +70,9 @@ void app_main(void)
     GrepfaMqttConnectorAddDevice(conn, &ledVDev, 1);
 
 
+    int count = 0;
     while (1){
-        ESP_LOGI(TAG, " ");
+        ESP_LOGI(TAG, "%d sec", count++);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -83,13 +84,21 @@ static void pingTestTask(void* arg) {
     GrepfaMqttConnectorV1_t * conn = arg;
     GrepfaMqttDeviceSet(&vDev, id, NULL);
     GrepfaMqttConnectorAddDevice(conn, &vDev, 1);
-    char itoaBuf[100];
 
-    GrepfaPing_t req = GrepfaPingDefaultReq();
-    GrepfaPingResult_t res;
     while (1) {
+
+        char itoaBuf[100];
+        GrepfaPing_t req = GrepfaPingDefaultReq();
+        GrepfaPingResult_t res;
+
         ESP_LOGI(TAG, "ping test...");
-        GrepfaPingStart("a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", true, &req, &res);
+        int ret = GrepfaPingStart("a2bp9adt6od3cn-ats.iot.ap-northeast-2.amazonaws.com", true, &req, &res);
+        if (ret) {
+            ESP_LOGE(TAG, "ping test error");
+            vTaskDelay(1000 * portTICK_PERIOD_MS);
+            continue;
+        }
+        ESP_LOGI(TAG, "ping test end");
         int avgPing = res.total_time_ms / 5;
 
         GrepfaPayloadData_t * d = NewGrepfaPayloadData(id, 0);
@@ -99,9 +108,14 @@ static void pingTestTask(void* arg) {
 
         itoa(res.loss, itoaBuf, 10);
         AddGrepfaPayloadValue(d, 0, "pingLoss", itoaBuf);
+
+        ESP_LOGI(TAG, "publish ping result");
         GrepfaMqttConnectorPublish(conn, &vDev, d, 1);
 
+        ESP_LOGI(TAG, "publish ping result end");
+
         DeleteGrepfaPayloadData(d);
+
     }
 }
 
@@ -119,7 +133,7 @@ static void rssiTestTask(void* arg) {
 
     while (1) {
         ESP_LOGI(TAG, "rssi test...");
-        vTaskDelay(1000/portTICK_PERIOD_MS);
+        vTaskDelay(5000/portTICK_PERIOD_MS);
         GrepfaWiFiSTAGetApInfo(&currentWiFiInfo);
         GrepfaPayloadData_t * d = NewGrepfaPayloadData(id, 0);
         itoa(currentWiFiInfo.rssi, itoaBuf, 10);

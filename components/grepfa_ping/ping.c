@@ -58,6 +58,8 @@ static void ping_end(esp_ping_handle_t hdl, void *args)
         xSemaphoreGive(res->waitSem);
     }
 
+    ESP_LOGI(TAG, "end ping test");
+
     if (res->cb != NULL) {
         res->cb(*res);
     }
@@ -130,6 +132,9 @@ int GrepfaPingStart(char *addr, bool wait, GrepfaPing_t * req, GrepfaPingResult_
         }
 
         xSemaphoreTake(result->waitSem, portMAX_DELAY);
+    }
+
+    if(result->waitSem) {
         vSemaphoreDelete(result->waitSem);
     }
 
